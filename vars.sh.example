@@ -1,0 +1,5 @@
+# Organization ID that instances will be tied to
+org='PANTHEON_ORG_ID'
+
+# Upstream ID, used to create new sites
+upstream_id='UPSTREAM_ID'
