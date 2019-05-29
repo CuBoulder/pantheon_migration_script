@@ -94,7 +94,6 @@ tar -xzvf ./files/$site_files -C ./files/
 rm ./files/$site_files
 
 # TODO: Verify $env substitution
-# rsync -rlIpz  -e "ssh -p 2222 -o StrictHostKeyChecking=no" --temp-dir=~/tmp --delay-updates ./files/ dev.62117f66-b9f9-4f7b-a975-37c9e8505756@appserver.dev.62117f66-b9f9-4f7b-a975-37c9e8505756.drush.in:files
 rsync -rlIpz  -e "ssh -p 2222 -o StrictHostKeyChecking=no" --temp-dir=~/tmp --delay-updates ./files/ $pantheon_env.$site_id@appserver.$pantheon_env.$site_id.drush.in:files
 
 echo "File rync complete"
