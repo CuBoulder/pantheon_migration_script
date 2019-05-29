@@ -1,2 +1,3 @@
 vars.sh
 credentials.netrc
+*.DS_STORE
