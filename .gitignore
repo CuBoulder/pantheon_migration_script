@@ -1,3 +1,4 @@
 vars.sh
 credentials.netrc
 *.DS_STORE
+local_vars.py

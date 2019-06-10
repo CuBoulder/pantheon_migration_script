@@ -1,5 +1,5 @@
 # Python 3 Migration Script
-
+from local_vars import *
 import subprocess
 import requests
 import time
@@ -122,6 +122,3 @@ subprocess.Popen(['rm -rf ./files/*'], shell=True)
 
 
 print('Done.')
-
-# subprocess.Popen('rm -rf ./database/*', shell=True)
-# subprocess.Popen('rm -rf ./files/*', shell=True)
