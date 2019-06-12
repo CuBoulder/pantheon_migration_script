@@ -71,7 +71,7 @@ for instance in instance_list:
     subprocess.call(["scp", "-i", "~/.ssh/id_rsa", f"{env}:/nfs/{backups_env}_backups/backups/{site_database}", "./database"])
     print(f"Database Backup: {site_database}")
 
-    subprocess.call(["scp", "-i" "~/.ssh/id_rsa" f"{env}:/nfs/{backups_env}_backups/backups/{site_files}", "./files"])
+    subprocess.call(["scp", "-i" "~/.ssh/id_rsa", f"{env}:/nfs/{backups_env}_backups/backups/{site_files}", "./files"])
     print(f"Files Backup: {site_files}")
 
     # Pantheon create new site
@@ -83,14 +83,15 @@ for instance in instance_list:
     print(f"Uploading database to {pantheon_site_name}")
     # Get mysql credentials for pantheon site
     # TODO: Is there a way to call of this info at once and store in one variable?
-    mysql_username = subprocess.call(["terminus", "connection:info", f"{pantheon_site_name}.{pantheon_env}", "--field", "mysql_username"])
-    mysql_password = subprocess.call(["terminus", "connection:info", f"{pantheon_site_name}.{pantheon_env}", "--field", "mysql_password"])
-    mysql_database = subprocess.call(["terminus", "connection:info", f"{pantheon_site_name}.{pantheon_env}", "--field", "mysql_database"])
-    mysql_command = subprocess.call(["terminus", "connection:info", f"{pantheon_site_name}.{pantheon_env}", "--field", "mysql_command"])
-    site_id = subprocess.call([f"terminus", "site:info", f"{pantheon_site_name}", "--field", "id"])
+    mysql_username = subprocess.getoutput(f"terminus connection:info {pantheon_site_name}.{pantheon_env} --field mysql_username")
+    mysql_password = subprocess.getoutput(f"terminus connection:info {pantheon_site_name}.{pantheon_env} --field mysql_password")
+    mysql_database = subprocess.getoutput(f"terminus connection:info {pantheon_site_name}.{pantheon_env} --field mysql_database")
+    mysql_command = subprocess.getoutput(f"terminus connection:info {pantheon_site_name}.{pantheon_env} --field mysql_command")
+    site_id = subprocess.getoutput(f"terminus site:info {pantheon_site_name} --field id")
 
     # Send DB to Pantheon
-    database_sync = subprocess.call(["eval", f"'{mysql_command} < ./database/{site_database}'"])
+    database_sync = subprocess.Popen([f'eval "{mysql_command} < ./database/{site_database}"'], shell=True)
+    database_sync.wait()
     print("Database upload complete")
 
     print("Rsync'ing files to pantheon")
@@ -102,7 +103,8 @@ for instance in instance_list:
 
     # TODO: Verify $env substitution, handle errors or write script to restart rync
     # Rsync files to pantheon
-    file_rsync = subprocess.call(['rsync', '-rlIpz', '-e', '"ssh -p 2222 -o StrictHostKeyChecking=no"', '--temp-dir=~/tmp', '--delay-updates', './files/', f'{pantheon_env}.{site_id}@appserver.{pantheon_env}.{site_id}.drush.in:files'])
+    file_rsync = subprocess.Popen([f'rsync -rlIpz -e "ssh -p 2222 -o StrictHostKeyChecking=no" --temp-dir=~/tmp --delay-updates ./files/ {pantheon_env}.{site_id}@appserver.{pantheon_env}.{site_id}.drush.in:files'], shell=True)
+    file_rsync.wait()
     print("File rsync complete")
 
     # Clean up 
