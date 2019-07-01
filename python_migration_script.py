@@ -8,14 +8,16 @@ import time
 f = open("imported_sites.txt", "a+")
 
 # Atlas target Environment
-env = "osr-dev-util01.int.colorado.edu"
+env = ""
 # TODO: Get rid of the backups_env var, only used when scp
-backups_env = "dev"
+backups_env = ""
 # Pantheon Target Environment
-pantheon_env = 'dev'
+pantheon_env = ""
+# Pantheon Test Environment
+pantheon_deploy_env = ""
 
 # Instance to export
-instance_list = ["5cd5e902e1fa27ae427accc5"]
+instance_list = [""]
 
 # Backup Timer
 backup_wait = 5
@@ -49,6 +51,7 @@ for instance in instance_list:
     # Request site backups
     backup_request = requests.post(f"https://{env}/atlas/sites/{instance}/backup", auth=(identikey, user_password))
     print("Requesting Backup...")
+    time.sleep(backup_wait)
     site_backup_state = ''
 
     # Proceed with cloning of database and files after backup is complete
@@ -106,6 +109,10 @@ for instance in instance_list:
     file_rsync = subprocess.Popen([f'rsync -rlIpz -e "ssh -p 2222 -o StrictHostKeyChecking=no" --temp-dir=~/tmp --delay-updates ./files/ {pantheon_env}.{site_id}@appserver.{pantheon_env}.{site_id}.drush.in:files'], shell=True)
     file_rsync.wait()
     print("File rsync complete")
+
+    print(f"Deploying {pantheon_site_name} to {pantheon_deploy_env} environment")
+    deploy_test_env = subprocess.Popen([f"terminus env:deploy --updatedb {pantheon_site_name}.{pantheon_deploy_env}"], shell=True)
+    deploy_test_env.wait()
 
     # Clean up 
     print("Cleaning up for next run...")
