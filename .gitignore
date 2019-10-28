@@ -1,3 +1,6 @@
+database
+files
+certs
 vars.sh
 credentials.netrc
 *.DS_STORE

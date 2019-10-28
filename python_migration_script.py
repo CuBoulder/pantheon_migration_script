@@ -4,36 +4,53 @@ import subprocess
 import requests
 import time
 import optparse
+import logging
+import os
+
+logging.basicConfig(filename='app.log', filemode='a',
+                    format='%(asctime)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S', level=logging.INFO)
 
 parser = optparse.OptionParser()
 
-parser.add_option('-f', '--nofiles',
+parser.add_option('-n', '--nofiles',
                   action="store_false", dest="import_site_files",
                   help="Boolean to switch, use this flag to exclude files on site import")
+
+parser.add_option('-r', '--redis',
+                  action="store_false", dest="enable_redis",
+                  help="Boolean to switch, use this flag to enable redis on sites to import")
 
 options, args = parser.parse_args()
 
 # Bool, False will skip files from being imported
 import_file_bool = options.import_site_files
+enable_redis_bool = options.enable_redis
 
 # Open file where we log sites
 f = open("imported_sites.txt", "a+")
 
 # Atlas target Environment
-env = ""
+env = "osr-prod-util01.int.colorado.edu"
 # TODO: Get rid of the backups_env var, only used when scp
 backups_env = "prod"
 
 # TODO: Agree on prefix
-site_prefix = "ucb"
+site_prefix = "migration-test"
 
 # Number of seconds to wait before checking if site backup is ready
 backup_wait = 5
 
-# Instance to export
-instance_list = [""]
+# Make an array with instances
+with open('instance_list.txt') as my_file:
+    instance_list = my_file.readlines()
+
+for my_instance in instance_list:
+    print(my_instance)
+
 
 for instance in instance_list:
+
+    logging.info("Starting Migration on " + str(instance))
     
     print("Express Python Site Migration Script")
 
@@ -48,7 +65,9 @@ for instance in instance_list:
     # Get the path of the site we are importing
     site_response = requests.get(f"https://{env}/atlas/sites/{instance}")
     payload_json = site_response.json()
+    # print(payload_json) TODO: Delete
     site_name = payload_json["path"]
+    site_sid = payload_json["sid"]
 
     # Parse url, replace forward slashes with dashes
     # The site name can only contain a-z, A-Z, 0-9, and dashes ('-'), cannot begin or end with a dash, and must be fewer than 52 characters
@@ -77,7 +96,9 @@ for instance in instance_list:
     print("Backup is ready for export!")
 
     site_files = site_backup_json["_items"][0]["files"]
+    logging.info(str(instance) + "files backup: " + str(site_files))
     site_database = site_backup_json["_items"][0]["database"]
+    logging.info(str(instance)+ " db backup: " + str(site_database))
 
     # User needs to have SSH key added to server in order for scp to work
     if (import_file_bool == False): 
@@ -86,9 +107,11 @@ for instance in instance_list:
         print(f"Exporting files from {env}...")
         print(f"Files Backup: {site_files}")
         subprocess.call(["scp", "-i" "~/.ssh/id_rsa", f"{env}:/nfs/{backups_env}_backups/backups/{site_files}", "./files"])
+        logging.info(f"{instance} files backup successful")
 
     print(f"Database Backup: {site_database}")
     subprocess.call(["scp", "-i", "~/.ssh/id_rsa", f"{env}:/nfs/{backups_env}_backups/backups/{site_database}", "./database"])
+    logging.info(f"{instance} database backup successful")
 
     
 
@@ -97,20 +120,22 @@ for instance in instance_list:
     # TODO Handle: Duplicate site names
     # [error]  The site name jesus-import-site is already taken.
     create_site = subprocess.call(["terminus", "site:create", "--org", f"{org}", f"{pantheon_site_name}", f"{pantheon_label}", f"{upstream_id}"])
+    logging.info(f"{instance} pantheon instance created")
 
     print(f"Uploading database to {pantheon_site_name}")
     # Get mysql credentials for pantheon site
     # TODO: Is there a way to call of this info at once and store in one variable?
-    mysql_username = subprocess.getoutput(f"terminus connection:info {pantheon_site_name}.{pantheon_env} --field mysql_username")
-    mysql_password = subprocess.getoutput(f"terminus connection:info {pantheon_site_name}.{pantheon_env} --field mysql_password")
-    mysql_database = subprocess.getoutput(f"terminus connection:info {pantheon_site_name}.{pantheon_env} --field mysql_database")
-    mysql_command = subprocess.getoutput(f"terminus connection:info {pantheon_site_name}.{pantheon_env} --field mysql_command")
+    mysql_username = subprocess.getoutput(f"terminus connection:info {pantheon_site_name}.dev --field mysql_username")
+    mysql_password = subprocess.getoutput(f"terminus connection:info {pantheon_site_name}.dev --field mysql_password")
+    mysql_database = subprocess.getoutput(f"terminus connection:info {pantheon_site_name}.dev --field mysql_database")
+    mysql_command = subprocess.getoutput(f"terminus connection:info {pantheon_site_name}.dev --field mysql_command")
     site_id = subprocess.getoutput(f"terminus site:info {pantheon_site_name} --field id")
 
     # Send DB to Pantheon
     database_sync = subprocess.Popen([f'eval "{mysql_command} < ./database/{site_database}"'], shell=True)
     database_sync.wait()
     print("Database upload complete")
+    logging.info(f"{instance} db migration successful")
 
     if (import_file_bool == False):
         print('Skipping file rsync...')
@@ -128,9 +153,24 @@ for instance in instance_list:
         file_rsync = subprocess.Popen([f'rsync -rlIpz -e "ssh -p 2222 -o StrictHostKeyChecking=no" --temp-dir=~/tmp --delay-updates ./files/ dev.{site_id}@appserver.dev.{site_id}.drush.in:files'], shell=True)
         file_rsync.wait()
         print("File rsync complete")
+        logging.info(f"{instance} files migration successful")
 
     # TODO:
     # settings.php
+    os.system(
+        # 'cp /files/sites/default/default.settings.php /files/sites/default/settings.php')
+    # TODO: private keys
+    # os.system('cp /certs/saml.crt private/simplesamlphp-1.17.2/cert/saml.crt')
+    # os.system('cp /certs/saml.pem private/simplesamlphp-1.17.2/cert/saml.pem')
+
+        # Enable redis server for site, if passed via flag
+    if enable_redis_bool:
+        enable_redis_service = subprocess.Popen([f"terminus redis:enable {site_id}"], shell=True)
+        enable_redis_service.wait()
+
+        # Enable redis module
+        enable_redis_module = subprocess.Popen([f'terminus drush {pantheon_site_name}.dev pm-enable redis'], shell=True)
+        enable_redis_module.wait()
 
     # Disable ucb_on_prem_hosting module
     enable_ucb_on_prem = subprocess.Popen([f'terminus drush {pantheon_site_name}.dev pm-disable ucb_on_prem_hosting'], shell=True)
@@ -140,25 +180,35 @@ for instance in instance_list:
     enable_ucb_on_prem = subprocess.Popen([f'terminus drush {pantheon_site_name}.dev pm-enable pantheon_hosting'], shell=True)
     enable_ucb_on_prem.wait()
 
+    # Enable redis server for site, if passed via flag
+    if enable_redis_bool:
+        enable_redis_service = subprocess.Popen([f"terminus redis:enable {site_id}"], shell=True)
+        enable_redis_service.wait()
+
+        # Enable redis module
+        enable_redis_module = subprocess.Popen(
+            [f'terminus drush {pantheon_site_name}.dev pm-enable redis'], shell=True)
+        enable_redis_module.wait()
+
+    # Deploy to TEST
     print(f"Deploying {pantheon_site_name} to test environment")
     deploy_test_env = subprocess.Popen([f"terminus env:deploy --updatedb {pantheon_site_name}.test"], shell=True)
     deploy_test_env.wait()
-
+    logging.info(f"{instance} deployed to pantheon test")
+    # Deplot to PROD
     print(f"Deploying {pantheon_site_name} to prod environment")
     deploy_prod_env = subprocess.Popen([f"terminus env:deploy --updatedb {pantheon_site_name}.prod"], shell=True)
     deploy_prod_env.wait()
-
-    # Enable redis server for site
-    enable_redis = subprocess.Popen([f"terminus redis:enable {site_id}"], shell=True)
-    enable_redis.wait()
+    logging.info(f"{instance} deployed to pantheon prod")
 
     # Clean up 
-    print("Cleaning up for next run...")
-    subprocess.call(["rm", "-rf", "./database/"])
-    subprocess.call(["rm", "-rf", "./files/"])
+    # print("Cleaning up for next run...")
+    # subprocess.call(["rm", "-rf", "./database/"])
+    # subprocess.call(["rm", "-rf", "./files/"])
     
     # Log instance to file
     print(f"Completed: {instance}")
+    logging.info(f"{instance} migrated succesfully")
     f.write(f"{instance}\n")
 
 print("All Sites Processed.")
