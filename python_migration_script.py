@@ -7,6 +7,8 @@ import optparse
 import logging
 import os
 
+from helpers import pantheon_secrets
+
 logging.basicConfig(filename='app.log', filemode='a',
                     format='%(asctime)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S', level=logging.INFO)
 
@@ -156,6 +158,9 @@ for instance in instance_list:
         logging.info(f"{instance} files migration successful")
 
     # TODO:
+    site_id = subprocess.getoutput(f"terminus site:info {pantheon_site_name} --field git_command")
+
+
     # settings.php
     os.system(
         # 'cp /files/sites/default/default.settings.php /files/sites/default/settings.php')
