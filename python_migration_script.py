@@ -19,7 +19,7 @@ parser.add_option('-n', '--nofiles',
                   help="Boolean to switch, use this flag to exclude files on site import")
 
 parser.add_option('-r', '--redis',
-                  action="store_false", dest="enable_redis",
+                  action="store_true", dest="enable_redis",
                   help="Boolean to switch, use this flag to enable redis on sites to import")
 
 options, args = parser.parse_args()
@@ -157,42 +157,64 @@ for instance in instance_list:
         print("File rsync complete")
         logging.info(f"{instance} files migration successful")
 
-    # TODO:
-    site_id = subprocess.getoutput(f"terminus site:info {pantheon_site_name} --field git_command")
+    # TODO: Git
+    # git_command = subprocess.getoutput(f"terminus site:info {pantheon_site_name} --field git_command")
 
+    # Use terminus rsync to place certs in private directory
+    print(f"Placing certs for {pantheon_site_name}")
+    place_certs = subprocess.Popen(
+        [f"terminus rsync ./cert {pantheon_site_name}.dev:files/private"], shell=True)
+    place_certs.wait()
 
-    # settings.php
-    os.system(
-        # 'cp /files/sites/default/default.settings.php /files/sites/default/settings.php')
-    # TODO: private keys
-    # os.system('cp /certs/saml.crt private/simplesamlphp-1.17.2/cert/saml.crt')
-    # os.system('cp /certs/saml.pem private/simplesamlphp-1.17.2/cert/saml.pem')
+    # Enable sftp mode
+    enable_sftp = subprocess.Popen(
+        [f"terminus connection:set {pantheon_site_name}.dev sftp"], shell=True)
+    enable_sftp.wait()
 
-        # Enable redis server for site, if passed via flag
-    if enable_redis_bool:
-        enable_redis_service = subprocess.Popen([f"terminus redis:enable {site_id}"], shell=True)
-        enable_redis_service.wait()
+    # TODO: settings.php, place file
+    print("Creating settings.php")
+    os.system('cp default.settings.php settings.php')
 
-        # Enable redis module
-        enable_redis_module = subprocess.Popen([f'terminus drush {pantheon_site_name}.dev pm-enable redis'], shell=True)
-        enable_redis_module.wait()
+    print(f"Uploading settings.php to {pantheon_site_name}")
+    place_settings = subprocess.Popen(
+        [f"terminus rsync settings.php {pantheon_site_name}.dev:code/sites/default/"], shell=True)
+    place_settings.wait()
+
+    # Workaround for bug:
+    clear_dev_cache = subprocess.Popen(
+        [f"terminus env:clear-cache {pantheon_site_name}.dev"], shell=True)
+    clear_dev_cache.wait()
+
+    # TODO: Commit changes, switch to Git Mode
+    print("Commit settings.php")
+    commit_files = subprocess.Popen(
+        [f"terminus env:commit --message='Migration: Adding initial settings.php' {pantheon_site_name}.dev"], shell=True)
+    commit_files.wait()
+
+    print("Enable Git on Site")
+    enable_git_mode = subprocess.Popen(
+        [f"terminus connection:set {pantheon_site_name}.dev git -y"], shell=True)
+    enable_git_mode.wait()
 
     # Disable ucb_on_prem_hosting module
-    enable_ucb_on_prem = subprocess.Popen([f'terminus drush {pantheon_site_name}.dev pm-disable ucb_on_prem_hosting'], shell=True)
+    print("Disabling on_prem hosting")
+    enable_ucb_on_prem = subprocess.Popen([f'terminus remote:drush -- {pantheon_site_name}.dev pm-disable ucb_on_prem_hosting -y'], shell=True)
     enable_ucb_on_prem.wait()
 
     # Enable pantheon_hosting_module
-    enable_ucb_on_prem = subprocess.Popen([f'terminus drush {pantheon_site_name}.dev pm-enable pantheon_hosting'], shell=True)
-    enable_ucb_on_prem.wait()
+    print("Enabling pantheon_hosting")
+    enable_pantheon_hosting = subprocess.Popen([f'terminus remote:drush -- {pantheon_site_name}.dev pm-enable pantheon_hosting -y'], shell=True)
+    enable_pantheon_hosting.wait()
 
     # Enable redis server for site, if passed via flag
-    if enable_redis_bool:
+    if enable_redis_bool == True:
+        print("Enabling redis")
         enable_redis_service = subprocess.Popen([f"terminus redis:enable {site_id}"], shell=True)
         enable_redis_service.wait()
 
         # Enable redis module
         enable_redis_module = subprocess.Popen(
-            [f'terminus drush {pantheon_site_name}.dev pm-enable redis'], shell=True)
+            [f'terminus remote:drush -- {pantheon_site_name}.dev pm-enable redis -y'], shell=True)
         enable_redis_module.wait()
 
     # Deploy to TEST
@@ -200,16 +222,17 @@ for instance in instance_list:
     deploy_test_env = subprocess.Popen([f"terminus env:deploy --updatedb {pantheon_site_name}.test"], shell=True)
     deploy_test_env.wait()
     logging.info(f"{instance} deployed to pantheon test")
-    # Deplot to PROD
+    # Deploy to PROD
     print(f"Deploying {pantheon_site_name} to prod environment")
-    deploy_prod_env = subprocess.Popen([f"terminus env:deploy --updatedb {pantheon_site_name}.prod"], shell=True)
+    deploy_prod_env = subprocess.Popen([f"terminus env:deploy --updatedb {pantheon_site_name}.live"], shell=True)
     deploy_prod_env.wait()
     logging.info(f"{instance} deployed to pantheon prod")
 
     # Clean up 
-    # print("Cleaning up for next run...")
-    # subprocess.call(["rm", "-rf", "./database/"])
-    # subprocess.call(["rm", "-rf", "./files/"])
+    print("Cleaning up for next run...")
+    subprocess.call(["rm", "-rf", "./database/"])
+    subprocess.call(["rm", "-rf", "./files/"])
+    subprocess.call(["rm","settings.php"])
     
     # Log instance to file
     print(f"Completed: {instance}")
