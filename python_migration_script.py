@@ -157,21 +157,12 @@ for instance in instance_list:
         print("File rsync complete")
         logging.info(f"{instance} files migration successful")
 
-    # TODO: Git
-    # git_command = subprocess.getoutput(f"terminus site:info {pantheon_site_name} --field git_command")
-
-    # Use terminus rsync to place certs in private directory
-    print(f"Placing certs for {pantheon_site_name}")
-    place_certs = subprocess.Popen(
-        [f"terminus rsync ./cert {pantheon_site_name}.dev:files/private"], shell=True)
-    place_certs.wait()
-
-    # Enable sftp mode
+    # Enable sftp mode, needed to add and commit settings.php
     enable_sftp = subprocess.Popen(
         [f"terminus connection:set {pantheon_site_name}.dev sftp"], shell=True)
     enable_sftp.wait()
 
-    # TODO: settings.php, place file
+    # TODO: Generate settings.php from template
     print("Creating settings.php")
     os.system('cp default.settings.php settings.php')
 
@@ -185,12 +176,13 @@ for instance in instance_list:
         [f"terminus env:clear-cache {pantheon_site_name}.dev"], shell=True)
     clear_dev_cache.wait()
 
-    # TODO: Commit changes, switch to Git Mode
+   # Commit changes, switch to Git Mode
     print("Commit settings.php")
     commit_files = subprocess.Popen(
         [f"terminus env:commit --message='Migration: Adding initial settings.php' {pantheon_site_name}.dev"], shell=True)
     commit_files.wait()
 
+    # Switch back to Git mode
     print("Enable Git on Site")
     enable_git_mode = subprocess.Popen(
         [f"terminus connection:set {pantheon_site_name}.dev git -y"], shell=True)
@@ -227,6 +219,25 @@ for instance in instance_list:
     deploy_prod_env = subprocess.Popen([f"terminus env:deploy --updatedb {pantheon_site_name}.live"], shell=True)
     deploy_prod_env.wait()
     logging.info(f"{instance} deployed to pantheon prod")
+
+    # Use terminus rsync to place certs in private directory
+    print(f"Placing certs for {pantheon_site_name}")
+    place_certs_dev = subprocess.Popen(
+        [f"terminus rsync ./cert {pantheon_site_name}.dev:files/private"], shell=True)
+    place_certs_dev.wait()
+    logging.info(f"{instance} placed saml certs in prod")
+
+    print(f"Placing certs for {pantheon_site_name}")
+    place_certs_test = subprocess.Popen(
+        [f"terminus rsync ./cert {pantheon_site_name}.test:files/private -y"], shell=True)
+    place_certs_test.wait()
+    logging.info(f"{instance} placed saml certs in test")
+
+    print(f"Placing certs for {pantheon_site_name}")
+    place_certs_live = subprocess.Popen(
+        [f"terminus rsync ./cert {pantheon_site_name}.live:files/private -y"], shell=True)
+    place_certs_live.wait()
+    logging.info(f"{instance} placed saml certs in prod")
 
     # Clean up 
     print("Cleaning up for next run...")
