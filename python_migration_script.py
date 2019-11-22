@@ -44,13 +44,17 @@ backup_wait = 5
 
 # Make an array with instances
 with open('instance_list.txt') as my_file:
-    instance_list = my_file.readlines()
+    instance_list = my_file.read().splitlines()
 
-for my_instance in instance_list:
-    print(my_instance)
+for instance_data in instance_list:
 
+    instance_data_array = instance_data.split(',')
 
-for instance in instance_list:
+    instance = instance_data_array[0]
+    instance_subdomain = instance_data_array[1]
+
+    print(instance)
+    print(instance_subdomain)
 
     logging.info("Starting Migration on " + str(instance))
     
@@ -238,6 +242,39 @@ for instance in instance_list:
         [f"terminus rsync ./cert {pantheon_site_name}.live:files/private -y"], shell=True)
     place_certs_live.wait()
     logging.info(f"{instance} placed saml certs in prod")
+
+    # Update site plan to basic
+    print(f"Upgrading site plan to basic {pantheon_site_name}")
+    upgrade_plan = subprocess.Popen(
+        [f"terminus plan:set {pantheon_site_name} plan-basic_small-contract-annual-1"], shell=True)
+    upgrade_plan.wait()
+    logging.info(f"{instance} placed saml certs in prod")
+
+    # Add subdomain to live subdomains list
+    print(f"Adding subdomain live environment list")
+    add_subdomain = subprocess.Popen(
+        [f"terminus domain:add {pantheon_site_name}.live {instance_subdomain}"], shell=True)
+    add_subdomain.wait()
+    logging.info(f"{instance} adding subdomain to subdomain list")
+
+    # Connect subdomain to live instance
+    print(f"Connecting subdomain {instance_subdomain}")
+    connect_subdomain = subprocess.Popen(
+        [f"terminus domain:primary:add {pantheon_site_name}.live {instance_subdomain}"], shell=True)
+    connect_subdomain.wait()
+    logging.info(f"{instance} Connecting subdomain")
+
+    # Unlock express sites
+
+    # TODO: drush vset lock_user_dev TRUE
+
+
+    # TODO: disable express_content_edit_lock module
+
+    # Enable redis module
+    unlock_site = subprocess.Popen(
+        [f'terminus remote:drush -- {pantheon_site_name}.dev pm-enable redis -y'], shell=True)
+    unlock_site.wait()
 
     # Clean up 
     print("Cleaning up for next run...")
