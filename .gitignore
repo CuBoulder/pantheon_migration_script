@@ -1,6 +1,7 @@
 database
 files
 cert
+dev_cert
 vars.sh
 credentials.netrc
 *.DS_STORE

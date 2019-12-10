@@ -57,7 +57,7 @@ for instance_data in instance_list:
     print(instance_subdomain)
 
     logging.info("Starting Migration on " + str(instance))
-    
+
     print("Express Python Site Migration Script")
 
     # Remove existing database and file directories
@@ -85,15 +85,18 @@ for instance_data in instance_list:
     pantheon_label = pantheon_site_name
 
     # Request site backups
-    backup_request = requests.post(f"https://{env}/atlas/sites/{instance}/backup", auth=(identikey, user_password))
+    backup_request = requests.post(
+        f"https://{env}/atlas/sites/{instance}/backup", auth=(identikey, user_password))
     print("Requesting Backup...")
     time.sleep(backup_wait)
     site_backup_state = ''
 
     # Proceed with cloning of database and files after backup is complete
     while (site_backup_state != "complete"):
-        backup_params = {'sort': '-_updated', 'max_results': '1', 'where': '{"site":"'+instance+'"}'}
-        site_backup_request = requests.get(f"https://{env}/atlas/backup", params = backup_params)
+        backup_params = {'sort': '-_updated',
+                         'max_results': '1', 'where': '{"site":"'+instance+'"}'}
+        site_backup_request = requests.get(
+            f"https://{env}/atlas/backup", params=backup_params)
         site_backup_json = site_backup_request.json()
         site_backup_state = site_backup_json['_items'][0]['state']
         print(f"Backup Status: {site_backup_state}")
@@ -104,41 +107,48 @@ for instance_data in instance_list:
     site_files = site_backup_json["_items"][0]["files"]
     logging.info(str(instance) + "files backup: " + str(site_files))
     site_database = site_backup_json["_items"][0]["database"]
-    logging.info(str(instance)+ " db backup: " + str(site_database))
+    logging.info(str(instance) + " db backup: " + str(site_database))
 
     # User needs to have SSH key added to server in order for scp to work
-    if (import_file_bool == False): 
+    if (import_file_bool == False):
         print('Skipping file imports...')
     else:
         print(f"Exporting files from {env}...")
         print(f"Files Backup: {site_files}")
-        subprocess.call(["scp", "-i" "~/.ssh/id_rsa", f"{env}:/nfs/{backups_env}_backups/backups/{site_files}", "./files"])
+        subprocess.call(["scp", "-i" "~/.ssh/id_rsa",
+                         f"{env}:/nfs/{backups_env}_backups/backups/{site_files}", "./files"])
         logging.info(f"{instance} files backup successful")
 
     print(f"Database Backup: {site_database}")
-    subprocess.call(["scp", "-i", "~/.ssh/id_rsa", f"{env}:/nfs/{backups_env}_backups/backups/{site_database}", "./database"])
+    subprocess.call(["scp", "-i", "~/.ssh/id_rsa",
+                     f"{env}:/nfs/{backups_env}_backups/backups/{site_database}", "./database"])
     logging.info(f"{instance} database backup successful")
-
-    
 
     # Pantheon create new site
     # site:create [--org [ORG]] [--region [REGION]] [--] <site> <label> <upstream_id>
     # TODO Handle: Duplicate site names
     # [error]  The site name jesus-import-site is already taken.
-    create_site = subprocess.call(["terminus", "site:create", "--org", f"{org}", f"{pantheon_site_name}", f"{pantheon_label}", f"{upstream_id}"])
+    create_site = subprocess.call(["terminus", "site:create", "--org",
+                                   f"{org}", f"{pantheon_site_name}", f"{pantheon_label}", f"{upstream_id}"])
     logging.info(f"{instance} pantheon instance created")
 
     print(f"Uploading database to {pantheon_site_name}")
     # Get mysql credentials for pantheon site
     # TODO: Is there a way to call of this info at once and store in one variable?
-    mysql_username = subprocess.getoutput(f"terminus connection:info {pantheon_site_name}.dev --field mysql_username")
-    mysql_password = subprocess.getoutput(f"terminus connection:info {pantheon_site_name}.dev --field mysql_password")
-    mysql_database = subprocess.getoutput(f"terminus connection:info {pantheon_site_name}.dev --field mysql_database")
-    mysql_command = subprocess.getoutput(f"terminus connection:info {pantheon_site_name}.dev --field mysql_command")
-    site_id = subprocess.getoutput(f"terminus site:info {pantheon_site_name} --field id")
+    mysql_username = subprocess.getoutput(
+        f"terminus connection:info {pantheon_site_name}.dev --field mysql_username")
+    mysql_password = subprocess.getoutput(
+        f"terminus connection:info {pantheon_site_name}.dev --field mysql_password")
+    mysql_database = subprocess.getoutput(
+        f"terminus connection:info {pantheon_site_name}.dev --field mysql_database")
+    mysql_command = subprocess.getoutput(
+        f"terminus connection:info {pantheon_site_name}.dev --field mysql_command")
+    site_id = subprocess.getoutput(
+        f"terminus site:info {pantheon_site_name} --field id")
 
     # Send DB to Pantheon
-    database_sync = subprocess.Popen([f'eval "{mysql_command} < ./database/{site_database}"'], shell=True)
+    database_sync = subprocess.Popen(
+        [f'eval "{mysql_command} < ./database/{site_database}"'], shell=True)
     database_sync.wait()
     print("Database upload complete")
     logging.info(f"{instance} db migration successful")
@@ -149,14 +159,16 @@ for instance_data in instance_list:
 
         print("Rsync'ing files to pantheon")
         # # Unzip files backup on local machine
-        unpack_files = subprocess.call(["tar", "-xzf", f"./files/{site_files}", "-C", "./files/"])
-    
+        unpack_files = subprocess.call(
+            ["tar", "-xzf", f"./files/{site_files}", "-C", "./files/"])
+
         # Remove tar file
         remove_tar = subprocess.call(["rm", f"./files/{site_files}"])
 
-        # TODO: Verify $env substitution, handle errors or write script to restart rync
+        # TODO: Handle errors or write script to restart rync
         # Rsync files to pantheon
-        file_rsync = subprocess.Popen([f'rsync -rlIpz -e "ssh -p 2222 -o StrictHostKeyChecking=no" --temp-dir=~/tmp --delay-updates ./files/ dev.{site_id}@appserver.dev.{site_id}.drush.in:files'], shell=True)
+        file_rsync = subprocess.Popen(
+            [f'rsync -rlIpz -e "ssh -p 2222 -o StrictHostKeyChecking=no" --temp-dir=~/tmp --delay-updates ./files/ dev.{site_id}@appserver.dev.{site_id}.drush.in:files'], shell=True)
         file_rsync.wait()
         print("File rsync complete")
         logging.info(f"{instance} files migration successful")
@@ -194,18 +206,21 @@ for instance_data in instance_list:
 
     # Disable ucb_on_prem_hosting module
     print("Disabling on_prem hosting")
-    enable_ucb_on_prem = subprocess.Popen([f'terminus remote:drush -- {pantheon_site_name}.dev pm-disable ucb_on_prem_hosting -y'], shell=True)
+    enable_ucb_on_prem = subprocess.Popen(
+        [f'terminus remote:drush -- {pantheon_site_name}.dev pm-disable ucb_on_prem_hosting -y'], shell=True)
     enable_ucb_on_prem.wait()
 
     # Enable pantheon_hosting_module
     print("Enabling pantheon_hosting")
-    enable_pantheon_hosting = subprocess.Popen([f'terminus remote:drush -- {pantheon_site_name}.dev pm-enable pantheon_hosting -y'], shell=True)
+    enable_pantheon_hosting = subprocess.Popen(
+        [f'terminus remote:drush -- {pantheon_site_name}.dev pm-enable pantheon_hosting -y'], shell=True)
     enable_pantheon_hosting.wait()
 
     # Enable redis server for site, if passed via flag
     if enable_redis_bool == True:
         print("Enabling redis")
-        enable_redis_service = subprocess.Popen([f"terminus redis:enable {site_id}"], shell=True)
+        enable_redis_service = subprocess.Popen(
+            [f"terminus redis:enable {site_id}"], shell=True)
         enable_redis_service.wait()
 
         # Enable redis module
@@ -225,63 +240,63 @@ for instance_data in instance_list:
     logging.info(f"{instance} deployed to pantheon prod")
 
     # Use terminus rsync to place certs in private directory
-    print(f"Placing certs for {pantheon_site_name}")
+    print(f"Placing saml certs for {pantheon_site_name} in dev")
     place_certs_dev = subprocess.Popen(
-        [f"terminus rsync ./cert {pantheon_site_name}.dev:files/private"], shell=True)
+        [f"terminus rsync ./cert {pantheon_site_name}.dev:files/private -y"], shell=True)
     place_certs_dev.wait()
-    logging.info(f"{instance} placed saml certs in prod")
+    logging.info(f"{instance} placed saml certs in dev")
 
-    print(f"Placing certs for {pantheon_site_name}")
+    # Use regular rsync for the other two, StrictHostKeyChecking=no is needed
+    print(f"Placing certs for {pantheon_site_name} in test")
     place_certs_test = subprocess.Popen(
-        [f"terminus rsync ./cert {pantheon_site_name}.test:files/private -y"], shell=True)
+        [f'rsync -rlIpz -e "ssh -p 2222 -o StrictHostKeyChecking=no" --temp-dir=~/tmp --delay-updates ./cert test.{site_id}@appserver.test.{site_id}.drush.in:files/private'], shell=True)
     place_certs_test.wait()
     logging.info(f"{instance} placed saml certs in test")
 
-    print(f"Placing certs for {pantheon_site_name}")
+    print(f"Placing certs for {pantheon_site_name} in live")
     place_certs_live = subprocess.Popen(
-        [f"terminus rsync ./cert {pantheon_site_name}.live:files/private -y"], shell=True)
+        [f'rsync -rlIpz -e "ssh -p 2222 -o StrictHostKeyChecking=no" --temp-dir=~/tmp --delay-updates ./cert live.{site_id}@appserver.live.{site_id}.drush.in:files/private'], shell=True)
     place_certs_live.wait()
-    logging.info(f"{instance} placed saml certs in prod")
+    logging.info(f"{instance} placed saml certs in live")
+
 
     # Update site plan to basic
     print(f"Upgrading site plan to basic {pantheon_site_name}")
     upgrade_plan = subprocess.Popen(
         [f"terminus plan:set {pantheon_site_name} plan-basic_small-contract-annual-1"], shell=True)
     upgrade_plan.wait()
-    logging.info(f"{instance} placed saml certs in prod")
+    logging.info(f"{instance} upgrated to basic plan")
 
     # Add subdomain to live subdomains list
     print(f"Adding subdomain live environment list")
     add_subdomain = subprocess.Popen(
         [f"terminus domain:add {pantheon_site_name}.live {instance_subdomain}"], shell=True)
     add_subdomain.wait()
-    logging.info(f"{instance} adding subdomain to subdomain list")
+    logging.info(f"{instance} adding subdomain to site subdomain list")
 
     # Connect subdomain to live instance
     print(f"Connecting subdomain {instance_subdomain}")
     connect_subdomain = subprocess.Popen(
         [f"terminus domain:primary:add {pantheon_site_name}.live {instance_subdomain}"], shell=True)
     connect_subdomain.wait()
-    logging.info(f"{instance} Connecting subdomain")
+    logging.info(f"{instance} Connecting subdomain {instance_subdomain}")
 
     # Unlock express sites
 
-    # TODO: drush vset lock_user_dev TRUE
+    # TODO: drush vset lock_user_dev FALSE
 
+    # unlock_site = subprocess.Popen(
+    #     [f'terminus remote:drush -- {pantheon_site_name}.dev vset lock_user_dev FALSE'], shell=True)
+    # unlock_site.wait()
 
     # TODO: disable express_content_edit_lock module
 
-    # Enable redis module
-    unlock_site = subprocess.Popen(
-        [f'terminus remote:drush -- {pantheon_site_name}.dev pm-enable redis -y'], shell=True)
-    unlock_site.wait()
-
-    # Clean up 
+    # Clean up
     print("Cleaning up for next run...")
     subprocess.call(["rm", "-rf", "./database/"])
     subprocess.call(["rm", "-rf", "./files/"])
-    subprocess.call(["rm","settings.php"])
-    
+    subprocess.call(["rm", "settings.php"])
+
     # Log instance to file
     print(f"Completed: {instance}")
     logging.info(f"{instance} migrated succesfully")
