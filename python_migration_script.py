@@ -227,6 +227,13 @@ for instance_data in instance_list:
         enable_redis_module = subprocess.Popen(
             [f'terminus remote:drush -- {pantheon_site_name}.dev pm-enable redis -y'], shell=True)
         enable_redis_module.wait()
+    
+    # Apply DB Updates, if any
+    print(f"Running drush updb {pantheon_site_name} on dev")
+    run_database_updates = subprocess.Popen(
+        [f"terminus drush {pantheon_site_name}.dev -- updb -y"], shell=True)
+    run_database_updates.wait()
+    logging.info(f"{instance} drush updb")
 
     # Deploy to TEST
     print(f"Deploying {pantheon_site_name} to test environment")
@@ -282,14 +289,9 @@ for instance_data in instance_list:
     logging.info(f"{instance} Connecting subdomain {instance_subdomain}")
 
     # Unlock express sites
-
-    # TODO: drush vset lock_user_dev FALSE
-
-    # unlock_site = subprocess.Popen(
-    #     [f'terminus remote:drush -- {pantheon_site_name}.dev vset lock_user_dev FALSE'], shell=True)
-    # unlock_site.wait()
-
-    # TODO: disable express_content_edit_lock module
+    unlock_site = subprocess.Popen(
+        [f'terminus remote:drush -- {pantheon_site_name}.dev vset lock_user_dev FALSE'], shell=True)
+    unlock_site.wait()
 
     # Clean up
     print("Cleaning up for next run...")
