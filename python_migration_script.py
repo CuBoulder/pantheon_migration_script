@@ -22,11 +22,16 @@ parser.add_option('-r', '--redis',
                   action="store_true", dest="enable_redis",
                   help="Boolean to switch, use this flag to enable redis on sites to import")
 
+parser.add_option('-d', '--debug',
+                  action="store_true", dest="debug",
+                  help="Boolean to switch, use this to deploy a site to dev only and skip the rest")
+
 options, args = parser.parse_args()
 
 # Bool, False will skip files from being imported
 import_file_bool = options.import_site_files
 enable_redis_bool = options.enable_redis
+deploy_until_dev = options.debug
 
 # Open file where we log sites
 f = open("imported_sites.txt", "a+")
@@ -52,9 +57,6 @@ for instance_data in instance_list:
 
     instance = instance_data_array[0]
     instance_subdomain = instance_data_array[1]
-
-    print(instance)
-    print(instance_subdomain)
 
     logging.info("Starting Migration on " + str(instance))
 
@@ -235,17 +237,6 @@ for instance_data in instance_list:
     run_database_updates.wait()
     logging.info(f"{instance} drush updb")
 
-    # Deploy to TEST
-    print(f"Deploying {pantheon_site_name} to test environment")
-    deploy_test_env = subprocess.Popen([f"terminus env:deploy --updatedb {pantheon_site_name}.test"], shell=True)
-    deploy_test_env.wait()
-    logging.info(f"{instance} deployed to pantheon test")
-    # Deploy to PROD
-    print(f"Deploying {pantheon_site_name} to prod environment")
-    deploy_prod_env = subprocess.Popen([f"terminus env:deploy --updatedb {pantheon_site_name}.live"], shell=True)
-    deploy_prod_env.wait()
-    logging.info(f"{instance} deployed to pantheon prod")
-
     # Use terminus rsync to place certs in private directory
     print(f"Placing saml certs for {pantheon_site_name} in dev")
     place_certs_dev = subprocess.Popen(
@@ -253,45 +244,53 @@ for instance_data in instance_list:
     place_certs_dev.wait()
     logging.info(f"{instance} placed saml certs in dev")
 
-    # Use regular rsync for the other two, StrictHostKeyChecking=no is needed
-    print(f"Placing certs for {pantheon_site_name} in test")
-    place_certs_test = subprocess.Popen(
-        [f'rsync -rlIpz -e "ssh -p 2222 -o StrictHostKeyChecking=no" --temp-dir=~/tmp --delay-updates ./cert test.{site_id}@appserver.test.{site_id}.drush.in:files/private'], shell=True)
-    place_certs_test.wait()
-    logging.info(f"{instance} placed saml certs in test")
+    if deploy_until_dev == False:
+        # Deploy to TEST
+        print(f"Deploying {pantheon_site_name} to test environment")
+        deploy_test_env = subprocess.Popen([f"terminus env:deploy --updatedb {pantheon_site_name}.test"], shell=True)
+        deploy_test_env.wait()
+        logging.info(f"{instance} deployed to pantheon test")
+        # Deploy to PROD
+        print(f"Deploying {pantheon_site_name} to prod environment")
+        deploy_prod_env = subprocess.Popen([f"terminus env:deploy --updatedb {pantheon_site_name}.live"], shell=True)
+        deploy_prod_env.wait()
+        logging.info(f"{instance} deployed to pantheon prod")
 
-    print(f"Placing certs for {pantheon_site_name} in live")
-    place_certs_live = subprocess.Popen(
-        [f'rsync -rlIpz -e "ssh -p 2222 -o StrictHostKeyChecking=no" --temp-dir=~/tmp --delay-updates ./cert live.{site_id}@appserver.live.{site_id}.drush.in:files/private'], shell=True)
-    place_certs_live.wait()
-    logging.info(f"{instance} placed saml certs in live")
+        # Use regular rsync for the other two, StrictHostKeyChecking=no is needed
+        print(f"Placing certs for {pantheon_site_name} in test")
+        place_certs_test = subprocess.Popen(
+            [f'rsync -rlIpz -e "ssh -p 2222 -o StrictHostKeyChecking=no" --temp-dir=~/tmp --delay-updates ./cert test.{site_id}@appserver.test.{site_id}.drush.in:files/private'], shell=True)
+        place_certs_test.wait()
+        logging.info(f"{instance} placed saml certs in test")
 
+        print(f"Placing certs for {pantheon_site_name} in live")
+        place_certs_live = subprocess.Popen(
+            [f'rsync -rlIpz -e "ssh -p 2222 -o StrictHostKeyChecking=no" --temp-dir=~/tmp --delay-updates ./cert live.{site_id}@appserver.live.{site_id}.drush.in:files/private'], shell=True)
+        place_certs_live.wait()
+        logging.info(f"{instance} placed saml certs in live")
 
-    # Update site plan to basic
-    print(f"Upgrading site plan to basic {pantheon_site_name}")
-    upgrade_plan = subprocess.Popen(
-        [f"terminus plan:set {pantheon_site_name} plan-basic_small-contract-annual-1"], shell=True)
-    upgrade_plan.wait()
-    logging.info(f"{instance} upgrated to basic plan")
+         # TODO: Place secrets.json in /files/private
 
-    # Add subdomain to live subdomains list
-    print(f"Adding subdomain live environment list")
-    add_subdomain = subprocess.Popen(
-        [f"terminus domain:add {pantheon_site_name}.live {instance_subdomain}"], shell=True)
-    add_subdomain.wait()
-    logging.info(f"{instance} adding subdomain to site subdomain list")
+        # Update site plan to basic
+        print(f"Upgrading site plan to basic {pantheon_site_name}")
+        upgrade_plan = subprocess.Popen(
+            [f"terminus plan:set {pantheon_site_name} plan-basic_small-contract-annual-1"], shell=True)
+        upgrade_plan.wait()
+        logging.info(f"{instance} upgrated to basic plan")
 
-    # Connect subdomain to live instance
-    print(f"Connecting subdomain {instance_subdomain}")
-    connect_subdomain = subprocess.Popen(
-        [f"terminus domain:primary:add {pantheon_site_name}.live {instance_subdomain}"], shell=True)
-    connect_subdomain.wait()
-    logging.info(f"{instance} Connecting subdomain {instance_subdomain}")
+        # Add subdomain to live subdomains list
+        print(f"Adding subdomain live environment list")
+        add_subdomain = subprocess.Popen(
+            [f"terminus domain:add {pantheon_site_name}.live {instance_subdomain}"], shell=True)
+        add_subdomain.wait()
+        logging.info(f"{instance} adding subdomain to site subdomain list")
 
-    # Unlock express sites
-    unlock_site = subprocess.Popen(
-        [f'terminus remote:drush -- {pantheon_site_name}.dev vset lock_user_dev FALSE'], shell=True)
-    unlock_site.wait()
+        # Connect subdomain to live instance
+        print(f"Connecting subdomain {instance_subdomain}")
+        connect_subdomain = subprocess.Popen(
+            [f"terminus domain:primary:add {pantheon_site_name}.live {instance_subdomain}"], shell=True)
+        connect_subdomain.wait()
+        logging.info(f"{instance} Connecting subdomain {instance_subdomain}")
 
     # Clean up
     print("Cleaning up for next run...")
