@@ -79,7 +79,7 @@ for instance_data in instance_list:
     # Parse url, replace forward slashes with dashes
     # The site name can only contain a-z, A-Z, 0-9, and dashes ('-'), cannot begin or end with a dash, and must be fewer than 52 characters
     # pantheon_site_name = site_prefix + '-' + site_name.replace("/", "-")
-    pantheon_site_name = cu + '-' + site_sid
+    pantheon_site_name = "cu" + "-" + site_sid
     print(f"Pantheon site name: {pantheon_site_name}")
 
     # Label will be the site name for now
