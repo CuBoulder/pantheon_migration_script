@@ -73,13 +73,13 @@ for instance_data in instance_list:
     # Get the path of the site we are importing
     site_response = requests.get(f"https://{env}/atlas/sites/{instance}")
     payload_json = site_response.json()
-    # print(payload_json) TODO: Delete
     site_name = payload_json["path"]
     site_sid = payload_json["sid"]
 
     # Parse url, replace forward slashes with dashes
     # The site name can only contain a-z, A-Z, 0-9, and dashes ('-'), cannot begin or end with a dash, and must be fewer than 52 characters
-    pantheon_site_name = site_prefix + '-' + site_name.replace("/", "-")
+    # pantheon_site_name = site_prefix + '-' + site_name.replace("/", "-")
+    pantheon_site_name = cu + '-' + site_sid
     print(f"Pantheon site name: {pantheon_site_name}")
 
     # Label will be the site name for now
@@ -127,7 +127,6 @@ for instance_data in instance_list:
     logging.info(f"{instance} database backup successful")
 
     # Pantheon create new site
-    # site:create [--org [ORG]] [--region [REGION]] [--] <site> <label> <upstream_id>
     # TODO Handle: Duplicate site names
     # [error]  The site name jesus-import-site is already taken.
     create_site = subprocess.call(["terminus", "site:create", "--org",
@@ -167,7 +166,6 @@ for instance_data in instance_list:
         # Remove tar file
         remove_tar = subprocess.call(["rm", f"./files/{site_files}"])
 
-        # TODO: Handle errors or write script to restart rync
         # Rsync files to pantheon
         file_rsync = subprocess.Popen(
             [f'rsync -rlIpz -e "ssh -p 2222 -o StrictHostKeyChecking=no" --temp-dir=~/tmp --delay-updates ./files/ dev.{site_id}@appserver.dev.{site_id}.drush.in:files'], shell=True)

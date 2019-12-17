@@ -13,7 +13,6 @@ You will need to have the following items ready before using the script:
     python3 -m pip install requests
     ```
 
-
 - MySQL 5.7 or above installed
 
 - [CU Boulder Pantheon Organization Access](https://dashboard.pantheon.io/login).
