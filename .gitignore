@@ -6,4 +6,7 @@ vars.sh
 credentials.netrc
 *.DS_STORE
 local_vars.py
+app.log
+*.crt
+*.pem
 __pycache__
