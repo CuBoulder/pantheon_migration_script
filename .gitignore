@@ -9,4 +9,5 @@ local_vars.py
 app.log
 *.crt
 *.pem
+instance_list.txt
 __pycache__
