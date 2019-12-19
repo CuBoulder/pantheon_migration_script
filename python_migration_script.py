@@ -267,7 +267,25 @@ for instance_data in instance_list:
         place_certs_live.wait()
         logging.info(f"{instance} placed saml certs in live")
 
-         # TODO: Place secrets.json in /files/private
+         # Place secrets.json in dev, test and live
+
+        print(f"Creating {pantheon_site_name} in dev")
+        place_secrets_dev = subprocess.Popen(
+            [f'rsync -rlIpz -e "ssh -p 2222 -o StrictHostKeyChecking=no" --temp-dir=~/tmp --delay-updates secrets.json dev.{site_id}@appserver.dev.{site_id}.drush.in:files/private/'], shell=True)
+        place_secrets_dev.wait()
+        logging.info(f"{instance} created secrets.json in dev")
+
+        print(f"Creating {pantheon_site_name} in test")
+        place_secret_test = subprocess.Popen(
+            [f'rsync -rlIpz -e "ssh -p 2222 -o StrictHostKeyChecking=no" --temp-dir=~/tmp --delay-updates secrets.json test.{site_id}@appserver.test.{site_id}.drush.in:files/private/'], shell=True)
+        place_secret_test.wait()
+        logging.info(f"{instance} created secrets.json in test")
+
+        print(f"Creating {pantheon_site_name} in live")
+        place_secrets_live = subprocess.Popen(
+            [f'rsync -rlIpz -e "ssh -p 2222 -o StrictHostKeyChecking=no" --temp-dir=~/tmp --delay-updates secrets.json live.{site_id}@appserver.live.{site_id}.drush.in:files/private/'], shell=True)
+        place_secrets_live.wait()
+        logging.info(f"{instance} created secrets.json in live")
 
         # Update site plan to basic
         print(f"Upgrading site plan to basic {pantheon_site_name}")

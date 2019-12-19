@@ -10,4 +10,5 @@ app.log
 *.crt
 *.pem
 instance_list.txt
+secrets.json
 __pycache__
