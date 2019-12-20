@@ -15,15 +15,15 @@ logging.basicConfig(filename='app.log', filemode='a',
 parser = optparse.OptionParser()
 
 parser.add_option('-n', '--nofiles',
-                  action="store_false", dest="import_site_files",
+                  default=None, action="store_false", dest="import_site_files",
                   help="Boolean to switch, use this flag to exclude files on site import")
 
 parser.add_option('-r', '--redis',
-                  action="store_true", dest="enable_redis",
+                  default=False, action="store_true", dest="enable_redis",
                   help="Boolean to switch, use this flag to enable redis on sites to import")
 
 parser.add_option('-d', '--debug',
-                  action="store_true", dest="debug",
+                  default=False, action="store_true", dest="debug",
                   help="Boolean to switch, use this to deploy a site to dev only and skip the rest")
 
 options, args = parser.parse_args()
