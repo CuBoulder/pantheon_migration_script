@@ -1,29 +1,19 @@
-import subprocess
-import os
+"""Migration Helper Functions."""
+import requests
 
-def pantheon_secrets(pantheon_site_name):
 
-    # pantheon_site_name = "jesus-sandbox"
+def create_pantheon_site(auth_token, sid, path, instance_type, pantheon_size, user):
+    """POST Request to create a new site on Pantheon."""
+    site_payload = {
+        'sid': sid,
+        'path': path,
+        'instance_type': instance_type,
+        'pantheon_size': pantheon_size,
+        'created_by': user,
+    }
 
-    subprocess.Popen([f"cp {pantheon_site_name}/sites/default/default.settings.php {pantheon_site_name}/sites/default/settings.php"], shell=True)
+    request_headers = {'Authorization': auth_token}
 
-    # Make cert directories
-    subprocess.Popen(
-        [f"mkdir -p {pantheon_site_name}/private/simplesamlphp-1.17.2/cert/"], shell=True)
-    subprocess.Popen(
-        [f"mkdir -p {pantheon_site_name}/sites/default/files/private/cert"], shell=True)
-    print("made private cert dir")
-
-    # Make copy certs
-    subprocess.Popen(
-        [f"cp cert/saml.crt {pantheon_site_name}/sites/default/files/private/cert/saml.crt"], shell=True)
-    subprocess.Popen(
-        [f"cp cert/saml.pem {pantheon_site_name}/sites/default/files/private/cert/saml.pem"], shell=True)
-
-    # Symlinks
-    subprocess.Popen(
-        [f"ln -s {pantheon_site_name}/sites/default/files/private/cert/saml.crt {pantheon_site_name}/private/simplesamlphp-1.17.2/cert/saml.crt"], shell=True)
-    subprocess.Popen(
-        [f"ln -s {pantheon_site_name}/sites/default/files/private/cert/saml.pem {pantheon_site_name}/private/simplesamlphp-1.17.2/cert/saml.pem"], shell=True)
-
-    print("done")
+    walnut_request = requests.post(
+        'http://127.0.0.1:5000/instance', headers=request_headers, json=site_payload)
+    print(walnut_request.json())

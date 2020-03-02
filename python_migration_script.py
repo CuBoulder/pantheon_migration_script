@@ -1,13 +1,14 @@
 # Python 3 Migration Script
-from local_vars import *
-import subprocess
-import requests
-import time
-import optparse
 import logging
 import os
+import subprocess
+import time
+import optparse
+import requests
 
-from helpers import pantheon_secrets
+from local_vars import IDENTIKEY, USER_PASSWORD, ORG, UPSTREAM_ID, WALNUT_TOKEN, WALNUT_USER
+from helpers import create_pantheon_site
+
 
 logging.basicConfig(filename='app.log', filemode='a',
                     format='%(asctime)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S', level=logging.INFO)
@@ -75,6 +76,7 @@ for instance_data in instance_list:
     payload_json = site_response.json()
     site_name = payload_json["path"]
     site_sid = payload_json["sid"]
+    site_type = payload_json["site_type"]
 
     # Parse url, replace forward slashes with dashes
     # The site name can only contain a-z, A-Z, 0-9, and dashes ('-'), cannot begin or end with a dash, and must be fewer than 52 characters
@@ -241,6 +243,11 @@ for instance_data in instance_list:
         [f"terminus rsync ./cert {pantheon_site_name}.dev:files/private -y"], shell=True)
     place_certs_dev.wait()
     logging.info(f"{instance} placed saml certs in dev")
+
+    # Report to Walnut Api
+    create_pantheon_site(WALNUT_TOKEN, site_sid, pantheon_site_name, site_type, 'xs', 'jeor0980')
+    # TODO check for 200 response
+    logging.info(f"{instance} created record in walnut") 
 
     if deploy_until_dev == False:
         # Deploy to TEST

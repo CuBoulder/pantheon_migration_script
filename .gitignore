@@ -1,3 +1,6 @@
+.vscode/
+imported_sites.txt
+instance_list.txt
 database
 files
 cert
@@ -11,4 +14,6 @@ app.log
 *.pem
 instance_list.txt
 secrets.json
+settings.php
 __pycache__
+

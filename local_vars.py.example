@@ -1,9 +1,11 @@
-identikey=''
+IDENTIKEY = ''
 
-user_password=''
+USER_PASSWORD = ''
 
 # Organization ID that instances will be tied to
-org=''
+ORG = ''
 
 # Upstream ID, used to create new sites
-upstream_id=''
+UPSTREAM_ID = ''
+
+WALNUT_TOKEN = ''
