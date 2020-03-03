@@ -6,7 +6,7 @@ import time
 import optparse
 import requests
 
-from local_vars import IDENTIKEY, USER_PASSWORD, ORG, UPSTREAM_ID, WALNUT_TOKEN, WALNUT_USER
+from local_vars import IDENTIKEY, USER_PASSWORD, ORG, UPSTREAM_ID, WALNUT_TOKEN
 from helpers import create_pantheon_site
 
 
@@ -90,7 +90,7 @@ for instance_data in instance_list:
 
     # Request site backups
     backup_request = requests.post(
-        f"https://{env}/atlas/sites/{instance}/backup", auth=(identikey, user_password))
+        f"https://{env}/atlas/sites/{instance}/backup", auth=(IDENTIKEY, USER_PASSWORD))
     print("Requesting Backup...")
     time.sleep(backup_wait)
     site_backup_state = ''
@@ -132,7 +132,7 @@ for instance_data in instance_list:
     # TODO Handle: Duplicate site names
     # [error]  The site name jesus-import-site is already taken.
     create_site = subprocess.call(["terminus", "site:create", "--org",
-                                   f"{org}", f"{pantheon_site_name}", f"{pantheon_label}", f"{upstream_id}"])
+                                   f"{ORG}", f"{pantheon_site_name}", f"{pantheon_label}", f"{UPSTREAM_ID}"])
     logging.info(f"{instance} pantheon instance created")
 
     print(f"Uploading database to {pantheon_site_name}")
@@ -194,7 +194,7 @@ for instance_data in instance_list:
         [f"terminus env:clear-cache {pantheon_site_name}.dev"], shell=True)
     clear_dev_cache.wait()
 
-   # Commit changes, switch to Git Mode
+    # Commit changes, switch to Git Mode
     print("Commit settings.php")
     commit_files = subprocess.Popen(
         [f"terminus env:commit --message='Migration: Adding initial settings.php' {pantheon_site_name}.dev"], shell=True)
@@ -245,9 +245,9 @@ for instance_data in instance_list:
     logging.info(f"{instance} placed saml certs in dev")
 
     # Report to Walnut Api
-    create_pantheon_site(WALNUT_TOKEN, site_sid, pantheon_site_name, site_type, 'xs', 'jeor0980')
+    walnut_request = create_pantheon_site(WALNUT_TOKEN, site_sid, pantheon_site_name, site_type, 'xs', IDENTIKEY)
     # TODO check for 200 response
-    logging.info(f"{instance} created record in walnut") 
+    logging.info(f"{walnut_request} walnut response")
 
     if deploy_until_dev == False:
         # Deploy to TEST
@@ -274,8 +274,7 @@ for instance_data in instance_list:
         place_certs_live.wait()
         logging.info(f"{instance} placed saml certs in live")
 
-         # Place secrets.json in dev, test and live
-
+        # Place secrets.json in dev, test and live
         print(f"Creating {pantheon_site_name} in dev")
         place_secrets_dev = subprocess.Popen(
             [f'rsync -rlIpz -e "ssh -p 2222 -o StrictHostKeyChecking=no" --temp-dir=~/tmp --delay-updates secrets.json dev.{site_id}@appserver.dev.{site_id}.drush.in:files/private/'], shell=True)

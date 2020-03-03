@@ -1,3 +1,5 @@
+"""Local Variables for Walnut."""
+
 IDENTIKEY = ''
 
 USER_PASSWORD = ''

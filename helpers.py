@@ -16,4 +16,4 @@ def create_pantheon_site(auth_token, sid, path, instance_type, pantheon_size, us
 
     walnut_request = requests.post(
         'http://127.0.0.1:5000/instance', headers=request_headers, json=site_payload)
-    print(walnut_request.json())
+    return walnut_request.status_code
