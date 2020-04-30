@@ -7,7 +7,7 @@ import optparse
 import requests
 
 from local_vars import IDENTIKEY, USER_PASSWORD, ORG, UPSTREAM_ID, WALNUT_TOKEN
-from helpers import create_pantheon_site
+from helpers import create_pantheon_site, generate_simplesaml_config
 
 
 logging.basicConfig(filename='app.log', filemode='a',
@@ -42,8 +42,8 @@ env = "osr-prod-util01.int.colorado.edu"
 # TODO: Get rid of the backups_env var, only used when scp
 backups_env = "prod"
 
-# TODO: Agree on prefix
-site_prefix = "migration-test"
+# This is also altered below in pantheon_site_name
+site_prefix = ""
 
 # Number of seconds to wait before checking if site backup is ready
 backup_wait = 5
@@ -58,6 +58,7 @@ for instance_data in instance_list:
 
     instance = instance_data_array[0]
     instance_subdomain = instance_data_array[1]
+    instance_subdomain_path = instance_data_array[2]
 
     logging.info("Starting Migration on " + str(instance))
 
@@ -81,7 +82,7 @@ for instance_data in instance_list:
     # Parse url, replace forward slashes with dashes
     # The site name can only contain a-z, A-Z, 0-9, and dashes ('-'), cannot begin or end with a dash, and must be fewer than 52 characters
     # pantheon_site_name = site_prefix + '-' + site_name.replace("/", "-")
-    pantheon_site_name = "cu" + "-" + site_sid
+    pantheon_site_name = site_prefix + "ucb" + "-" + site_sid
     print(f"Pantheon site name: {pantheon_site_name}")
 
     # Label will be the site name for now
@@ -184,6 +185,11 @@ for instance_data in instance_list:
     print("Creating settings.php")
     os.system('cp default.settings.php settings.php')
 
+    # Generate config.php for simplesamlphp
+    print("Generating simplesamlphp config file")
+    generate_simplesaml_config(instance_subdomain, instance_subdomain_path)
+    logging.info(f"{instance} generate simplesamlphp config.php successful")
+
     print(f"Uploading settings.php to {pantheon_site_name}")
     place_settings = subprocess.Popen(
         [f"terminus rsync settings.php {pantheon_site_name}.dev:code/sites/default/"], shell=True)
@@ -245,7 +251,7 @@ for instance_data in instance_list:
     logging.info(f"{instance} placed saml certs in dev")
 
     # Report to Walnut Api
-    walnut_request = create_pantheon_site(WALNUT_TOKEN, site_sid, pantheon_site_name, site_type, 'xs', IDENTIKEY)
+    walnut_request = create_pantheon_site(WALNUT_TOKEN, site_sid, instance_subdomain_path, site_type, 'xs', IDENTIKEY)
     # TODO check for 200 response
     logging.info(f"{walnut_request} walnut response")
 
@@ -300,25 +306,26 @@ for instance_data in instance_list:
         upgrade_plan.wait()
         logging.info(f"{instance} upgrated to basic plan")
 
-        # Add subdomain to live subdomains list
-        print(f"Adding subdomain live environment list")
-        add_subdomain = subprocess.Popen(
-            [f"terminus domain:add {pantheon_site_name}.live {instance_subdomain}"], shell=True)
-        add_subdomain.wait()
-        logging.info(f"{instance} adding subdomain to site subdomain list")
+        # # Add subdomain to live subdomains list
+        # print(f"Adding subdomain live environment list")
+        # add_subdomain = subprocess.Popen(
+        #     [f"terminus domain:add {pantheon_site_name}.live {instance_subdomain}"], shell=True)
+        # add_subdomain.wait()
+        # logging.info(f"{instance} adding subdomain to site subdomain list")
 
-        # Connect subdomain to live instance
-        print(f"Connecting subdomain {instance_subdomain}")
-        connect_subdomain = subprocess.Popen(
-            [f"terminus domain:primary:add {pantheon_site_name}.live {instance_subdomain}"], shell=True)
-        connect_subdomain.wait()
-        logging.info(f"{instance} Connecting subdomain {instance_subdomain}")
+        # # Connect subdomain to live instance
+        # print(f"Connecting subdomain {instance_subdomain}")
+        # connect_subdomain = subprocess.Popen(
+        #     [f"terminus domain:primary:add {pantheon_site_name}.live {instance_subdomain}"], shell=True)
+        # connect_subdomain.wait()
+        # logging.info(f"{instance} Connecting subdomain {instance_subdomain}")
 
     # Clean up
     print("Cleaning up for next run...")
     subprocess.call(["rm", "-rf", "./database/"])
     subprocess.call(["rm", "-rf", "./files/"])
     subprocess.call(["rm", "settings.php"])
+    subprocess.call(["rm", "config.php"])
 
     # Log instance to file
     print(f"Completed: {instance}")

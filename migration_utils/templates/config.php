@@ -47,7 +47,7 @@ $config = [
      */
     //'baseurlpath' => 'https://' . $_SERVER['HTTP_HOST'] . '/simplesaml/', // SAML should always connect via 443, removed $port to work with Pantheon
 
-    'baseurlpath' => {{ BASE_URL_PATH }},
+    'baseurlpath' => '{{ BASE_URL_PATH }}',
     /*
      * The 'application' configuration array groups a set configuration options
      * relative to an application protected by SimpleSAMLphp.
@@ -315,7 +315,7 @@ $config = [
      * - %msg: the message to be logged.
      *
      */
-    //'logging.format' => '%date{%b %d %H:%M:%S} %process %level %stat[%trackid] %msg',
+    //'logging.format' => '',
 
     /*
      * Choose which facility should be used when logging with syslog.
@@ -540,7 +540,7 @@ $config = [
      * Example:
      *  'session.cookie.path' => '/simplesaml/',
      */
-    'session.cookie.path' => {{ SESSION_COOKIE_PATH }},
+    'session.cookie.path' => '{{ SESSION_COOKIE_PATH }}',
 
     /*
      * Cookie domain.
@@ -550,7 +550,7 @@ $config = [
      * Example:
      *  'session.cookie.domain' => '.example.org',
      */
-    'session.cookie.domain' => {{ SESSION_COOKIE_DOMAIN }},
+    'session.cookie.domain' => '{{ SESSION_COOKIE_DOMAIN }}',
 
     /*
      * Set the secure flag in the cookie.

@@ -15,5 +15,8 @@ app.log
 instance_list.txt
 secrets.json
 settings.php
+config.php
+template_testing.py
+instance_list.txt
 __pycache__
 
