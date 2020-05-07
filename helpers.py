@@ -1,23 +1,32 @@
 """Migration Helper Functions."""
 import os
+import subprocess
 import requests
 from jinja2 import Environment, PackageLoader
+from local_vars import WALNUT_INSTANCE_ENDPOINT
 
 
-def create_pantheon_site(auth_token, sid, path, instance_type, pantheon_size, user):
+def create_pantheon_site(auth_token, sid, path, instance_type, pantheon_size, user, pantheon_site_name):
     """POST Request to create a new site on Pantheon."""
+
+    # Use terminus to get URLS
+    pantheon_site_dashboard = subprocess.getoutput(f"terminus dashboard:view {pantheon_site_name} --print")
+    pantheon_live_url = subprocess.getoutput(f"terminus env:view {pantheon_site_name}.live --print")
+
     site_payload = {
         'sid': sid,
         'path': path,
         'instance_type': instance_type,
         'pantheon_size': pantheon_size,
         'created_by': user,
+        'pantheon_live_url': pantheon_site_dashboard,
+        'pantheon_dashboard_url': pantheon_live_url
     }
 
     request_headers = {'Authorization': auth_token}
 
     walnut_request = requests.post(
-        'http://34.82.22.38/instance', headers=request_headers, json=site_payload)
+        WALNUT_INSTANCE_ENDPOINT, headers=request_headers, json=site_payload)
     return walnut_request.status_code
 
 
