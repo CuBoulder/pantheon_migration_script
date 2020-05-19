@@ -7,7 +7,7 @@ import optparse
 import requests
 
 from local_vars import IDENTIKEY, USER_PASSWORD, ORG, UPSTREAM_ID, WALNUT_TOKEN
-from helpers import create_pantheon_site, generate_simplesaml_config
+from helpers import create_pantheon_site, generate_simplesaml_config, upgrade_to_basic_plan
 
 
 logging.basicConfig(filename='app.log', filemode='a',
@@ -43,7 +43,7 @@ env = "osr-prod-util01.int.colorado.edu"
 backups_env = "prod"
 
 # This is also altered below in pantheon_site_name
-site_prefix = ""
+site_prefix = "test-"
 
 # Number of seconds to wait before checking if site backup is ready
 backup_wait = 5
@@ -256,6 +256,7 @@ for instance_data in instance_list:
     logging.info(f"{instance} placed saml certs in dev")
 
     # Report to Walnut Api
+    print("Creating Walnut record:")
     walnut_request = create_pantheon_site(WALNUT_TOKEN, site_sid, instance_subdomain_path, site_type, 'xs', IDENTIKEY, pantheon_site_name)
     # TODO check for 200 response
     logging.info(f"{walnut_request} walnut response")
@@ -304,12 +305,9 @@ for instance_data in instance_list:
         place_secrets_live.wait()
         logging.info(f"{instance} created secrets.json in live")
 
-        # Update site plan to basic
-        print(f"Upgrading site plan to basic {pantheon_site_name}")
-        upgrade_plan = subprocess.Popen(
-            [f"terminus plan:set {pantheon_site_name} plan-basic_small-contract-annual-1"], shell=True)
-        upgrade_plan.wait()
-        logging.info(f"{instance} upgrated to basic plan")
+        # Upgrade site plan
+        print("Upgrading site to basic hosting") 
+        upgrade_to_basic_plan(pantheon_site_name)
 
     # Clean up
     print("Cleaning up for next run...")
