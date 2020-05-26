@@ -24,8 +24,8 @@ def create_pantheon_site(auth_token, sid, path, instance_type, pantheon_size, us
         'instance_type': instance_type,
         'pantheon_size': pantheon_size,
         'created_by': user,
-        'pantheon_live_url': pantheon_site_dashboard,
-        'pantheon_dashboard_url': pantheon_live_url,
+        'pantheon_live_url': pantheon_live_url,
+        'pantheon_dashboard_url': pantheon_site_dashboard,
         'pantheon_site_id': pantheon_site_id
     }
 
